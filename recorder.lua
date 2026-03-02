@@ -20,7 +20,7 @@ return function(ctx)
     local tower_count = 0
     local Recorder
     local has_hook = type(hookmetamethod) == "function"
-	
+
     local function record_action(command_str)
         if not Globals.record_strat then return end
         if appendfile then
@@ -99,7 +99,7 @@ return function(ctx)
 
     local function format_key(key)
         if type(key) == "string" and key:match("^[_%a][_%w]*$") then
-            return "[" .. string.format("%q", key) .. "]"
+            return key
         end
         if type(key) == "number" then
             return "[" .. num_to_str(key) .. "]"
@@ -431,12 +431,7 @@ return function(ctx)
         local a2 = args[2]
         local a3 = args[3]
         local a4 = args[4]
-		local a5 = args[5]
 
-        if a1 == "Troops" and (a2 == "Option" or a2 == "Abilities" or a2 == "TowerServerEvent") then
-            warn(string.format("📡 [Network Tracker] Action: %s | Sub-action: %s", tostring(a2), tostring(a3)))
-        end
-		
         if a1 == "Troops" and a2 == "Abilities" and a3 == "Activate" then
             if type(a4) == "table" then
                 local idx = resolve_tower_index(a4.Troop)
@@ -475,12 +470,11 @@ return function(ctx)
             end
         end
 
-		if a1 == "Troops" and a2 == "Option" then
-            local payload = type(a3) == "table" and a3 or (type(a4) == "table" and a4)
-            if payload then
-                local idx = resolve_tower_index(payload.Troop)
-                local opt_name = payload.Name or payload.Option or payload.Key or payload.Track or (payload["Unit 1"] and "Unit 1") or (payload["Unit 2"] and "Unit 2") or (payload["Unit 3"] and "Unit 3") or (payload.Trap and "Trap")
-                local opt_val = payload.Value or payload.Val or payload["Unit 1"] or payload["Unit 2"] or payload["Unit 3"] or payload.Trap
+        if a1 == "Troops" and a2 == "Option" and a3 == "Set" then
+            if type(a4) == "table" then
+                local idx = resolve_tower_index(a4.Troop)
+                local opt_name = a4.Name or a4.Option or a4.Key or a4.Track
+                local opt_val = a4.Value or a4.Val
                 if idx and type(opt_name) == "string" then
                     local cmd = string.format(
                         "TDS:SetOption(%d, %s, %s)",
@@ -495,17 +489,6 @@ return function(ctx)
             end
         end
 
-		if a1 == "Troops" and a2 == "TowerServerEvent" and a3 == "ToggleSelectedTower" then
-            local medic_idx = resolve_tower_index(a4)
-            local target_idx = resolve_tower_index(a5)
-            if medic_idx and target_idx then
-                local cmd = string.format("TDS:MedicSelect(%d, %d)", medic_idx, target_idx)
-                record_line(cmd, "Medic: " .. medic_idx .. " -> " .. target_idx)
-                handled = true
-                return
-            end
-        end
-		
         if a1 == "Voting" and a2 == "Skip" then
             record_line("TDS:VoteSkip()", "Voted to skip wave")
             handled = true
@@ -636,14 +619,9 @@ return function(ctx)
                     local args = {...}
                     local results = table.pack(original(self, ...))
                     local handler = Globals.__tds_recorder_handler
-					if handler and method then
+                    if handler and method then
                         task.spawn(function()
-                            local elevate_thread = setthreadidentity or setidentity or setthreadcontext
-                            if elevate_thread then elevate_thread(7) end
-                            local success, err = pcall(handler, self, method, args)
-                            if not success then
-                                warn("🚨 RECORDER CRASHED 🚨 Line:", err)
-                            end
+                            pcall(handler, self, method, args)
                         end)
                     end
                     return table.unpack(results, 1, results.n)
@@ -816,5 +794,3 @@ TDS:GameInfo("%s", {%s})
         end
     end
 end
-
-

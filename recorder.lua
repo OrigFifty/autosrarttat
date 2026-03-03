@@ -19,19 +19,19 @@ return function(ctx)
     local spawned_towers = {}
     local tower_count = 0
     local Recorder
-    local has_hookmetamethod = type(hookmetamethod) == "function"
-    local has_hookfunction = type(hookfunction) == "function"
-    local has_hook = has_hookmetamethod or has_hookfunction
-
-	Globals.__action_queue = Globals.__action_queue or {}
+    local has_hook = type(hookmetamethod) == "function"
 
     local function record_action(command_str)
         if not Globals.record_strat then return end
-        table.insert(Globals.__action_queue, { cmd_line = command_str })
+        if appendfile then
+            appendfile("Strat.txt", command_str .. "\n")
+        end
     end
 
     local function log_line(message)
-        table.insert(Globals.__action_queue, { ui_msg = message })
+        if Recorder and Recorder.Log then
+            Recorder:Log(message)
+        end
     end
 
     local function resolve_tower_index(tower)
@@ -187,9 +187,9 @@ return function(ctx)
                 parts[i] = num_to_str(comps[i])
             end
             return "CFrame.new(" .. table.concat(parts, ", ") .. ")"
-		elseif t == "Instance" then
-            local success, full = pcall(function() return v:GetFullName() end)
-            if success and type(full) == "string" and full ~= "" then
+        elseif t == "Instance" then
+            local full = v:GetFullName()
+            if type(full) == "string" and full ~= "" then
                 local parts = string.split(full, ".")
                 local expr = 'game:GetService("' .. parts[1] .. '")'
                 for i = 2, #parts do
@@ -201,12 +201,8 @@ return function(ctx)
                     end
                 end
                 return expr
-            else
-                local safe_name, safe_class = "Unknown", "Instance"
-                pcall(function() safe_name = v.Name end)
-                pcall(function() safe_class = v.ClassName end)
-                return string.format('"%s_Fingerprint_%s"', safe_class, safe_name)
             end
+            return "nil"
         elseif t == "table" then
             return serialize_table_raw(v, depth + 1)
         end
@@ -275,8 +271,8 @@ return function(ctx)
             return nil
         end
 
-        local success, full = pcall(function() return remote:GetFullName() end)
-        if not success or type(full) ~= "string" or full == "" then
+        local full = remote:GetFullName()
+        if type(full) ~= "string" or full == "" then
             return nil
         end
 
@@ -312,8 +308,8 @@ return function(ctx)
         end
 
         if typeof(remote) == "Instance" then
-            local success, full = pcall(function() return remote:GetFullName() end)
-            if success and type(full) == "string" then
+            local full = remote:GetFullName()
+            if type(full) == "string" then
                 local lower = full:lower()
                 if lower:find("consum") then
                     return true
@@ -435,6 +431,7 @@ return function(ctx)
         local a2 = args[2]
         local a3 = args[3]
         local a4 = args[4]
+		local a5 = args[5]
 
         if a1 == "Troops" and a2 == "Abilities" and a3 == "Activate" then
             if type(a4) == "table" then
@@ -493,6 +490,17 @@ return function(ctx)
             end
         end
 
+		if a1 == "Troops" and a2 == "TowerServerEvent" and a3 == "ToggleSelectedTower" then
+            local idx = resolve_tower_index(a4)
+            local target_idx = resolve_tower_index(a5)
+            if idx and target_idx then
+                local cmd = string.format("TDS:MedicSelect(%d, %d)", idx, target_idx)
+                record_line(cmd, "Medic: " .. idx .. " -> " .. target_idx)
+                handled = true
+                return
+            end
+        end
+		
         if a1 == "Voting" and a2 == "Skip" then
             record_line("TDS:VoteSkip()", "Voted to skip wave")
             handled = true
@@ -610,62 +618,40 @@ return function(ctx)
             Size = UDim2.new(0, 330, 0, 230)
         })
 
-Globals.__tds_recorder_handler = function(remote, method, args)
-            handle_namecall(remote, method, args)
-        end
+        if has_hook then
+            Globals.__tds_recorder_handler = function(remote, method, args)
+                handle_namecall(remote, method, args)
+            end
 
-        if not Globals.__tds_recorder_hooked then
-            Globals.__tds_recorder_hooked = true
-            Globals.__working_hook = false
-            
-            -- Brute-Force Attempt 1: Namecall (Standard)
-            pcall(function()
+            if not Globals.__recorder_bindable then
+                Globals.__recorder_bindable = Instance.new("BindableEvent")
+                Globals.__recorder_bindable.Event:Connect(function(packet)
+                    local handler = Globals.__tds_recorder_handler
+                    if handler then
+                        pcall(handler, packet.remote, packet.method, packet.args)
+                    end
+                end)
+            end
+
+            if not Globals.__tds_recorder_hooked then
+                Globals.__tds_recorder_hooked = true
                 local original
                 original = hookmetamethod(game, "__namecall", function(self, ...)
                     local method = getnamecallmethod and getnamecallmethod() or nil
                     local args = {...}
                     local results = table.pack(original(self, ...))
-                    local handler = Globals.__tds_recorder_handler
                     
+                    local handler = Globals.__tds_recorder_handler
                     if handler and method then
-                        task.spawn(function() pcall(handler, self, method, args) end)
+                        Globals.__recorder_bindable:Fire({
+                            remote = self,
+                            method = method,
+                            args = args
+                        })
                     end
                     return table.unpack(results, 1, results.n)
                 end)
-                Globals.__working_hook = true
-            end)
-
-            -- Brute-Force Attempt 2: Direct Hook (BetterRecorder / Xeno Fallback)
-            pcall(function()
-                local rf = Instance.new("RemoteFunction")
-                local re = Instance.new("RemoteEvent")
-                
-                local orig_invoke
-                orig_invoke = hookfunction(rf.InvokeServer, function(self, ...)
-                    local args = {...}
-                    local results = table.pack(orig_invoke(self, ...))
-                    local handler = Globals.__tds_recorder_handler
-                    if handler then
-                        task.spawn(function() pcall(handler, self, "InvokeServer", args) end)
-                    end
-                    return table.unpack(results, 1, results.n)
-                end)
-                
-                local orig_fire
-                orig_fire = hookfunction(re.FireServer, function(self, ...)
-                    local args = {...}
-                    local handler = Globals.__tds_recorder_handler
-                    if handler then
-                        task.spawn(function() pcall(handler, self, "FireServer", args) end)
-                    end
-                    return orig_fire(self, ...)
-                end)
-                
-                rf:Destroy()
-                re:Destroy()
-                Globals.__working_hook = true
-            end)
-        end
+            end
 
         RecorderTab:Button({
             Title = "START",
@@ -736,7 +722,7 @@ Globals.__tds_recorder_handler = function(remote, method, args)
 
                 sync_existing_towers()
                 Globals.record_strat = true
-                if Globals.__working_hook then
+                if has_hook then
                     Recorder:Log("Extended recording enabled")
                 else
                     Recorder:Log("Limited recording (place/upgrade/sell)")
@@ -831,20 +817,4 @@ TDS:GameInfo("%s", {%s})
             end)
         end
     end
-    task.spawn(function()
-        Globals.__action_queue = Globals.__action_queue or {}
-        while task.wait(0.1) do
-            if #Globals.__action_queue > 0 then
-                local packet = table.remove(Globals.__action_queue, 1)
-                
-                if packet.cmd_line and appendfile then
-                    pcall(function() appendfile("Strat.txt", packet.cmd_line .. "\n") end)
-                end
-                
-                if packet.ui_msg and Recorder and Recorder.Log then
-                    pcall(function() Recorder:Log(packet.ui_msg) end)
-                end
-            end
-        end
-    end)
 end

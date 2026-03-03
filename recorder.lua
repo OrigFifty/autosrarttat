@@ -640,7 +640,6 @@ return function(ctx)
                     local method = getnamecallmethod and getnamecallmethod() or nil
                     local args = {...}
                     local results = table.pack(original(self, ...))
-                    
                     local handler = Globals.__tds_recorder_handler
                     if handler and method then
                         Globals.__recorder_bindable:Fire({

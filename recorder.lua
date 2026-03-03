@@ -99,13 +99,13 @@ return function(ctx)
 
     local function format_key(key)
         if type(key) == "string" and key:match("^[_%a][_%w]*$") then
-            return key
+            return "[" .. string.format("%q", key) .. "]"
         end
         if type(key) == "number" then
             return "[" .. num_to_str(key) .. "]"
         end
         return "[" .. serialize_value(key) .. "]"
-    end
+	end
 
     local function is_array(tbl)
         local max_idx = 0

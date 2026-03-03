@@ -620,10 +620,13 @@ return function(ctx)
                     local results = table.pack(original(self, ...))
                     local handler = Globals.__tds_recorder_handler
                     if handler and method then
-                        task.spawn(function()
-                            pcall(handler, self, method, args)
-                        end)
-                    end
+                        Globals.__recorder_queue = Globals.__recorder_queue or {}
+                        table.insert(Globals.__recorder_queue, {
+                            self = self,
+                            method = method,
+                            args = args
+                        })
+					end
                     return table.unpack(results, 1, results.n)
                 end)
             end
@@ -794,3 +797,17 @@ TDS:GameInfo("%s", {%s})
         end
     end
 end
+
+task.spawn(function()
+    Globals.__recorder_queue = Globals.__recorder_queue or {}
+    while task.wait() do
+        if #Globals.__recorder_queue > 0 then
+            local packet = table.remove(Globals.__recorder_queue, 1)
+            local handler = Globals.__tds_recorder_handler
+            if handler then
+                -- Safely read the data with native God Mode permissions
+                pcall(handler, packet.self, packet.method, packet.args)
+            end
+        end
+    end
+end)

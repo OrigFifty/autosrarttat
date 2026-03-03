@@ -431,7 +431,6 @@ return function(ctx)
         local a2 = args[2]
         local a3 = args[3]
         local a4 = args[4]
-		local a5 = args[5]
 
         if a1 == "Troops" and a2 == "Abilities" and a3 == "Activate" then
             if type(a4) == "table" then
@@ -490,17 +489,6 @@ return function(ctx)
             end
         end
 
-		if a1 == "Troops" and a2 == "TowerServerEvent" and a3 == "ToggleSelectedTower" then
-            local idx = resolve_tower_index(a4)
-            local target_idx = resolve_tower_index(a5)
-            if idx and target_idx then
-                local cmd = string.format("TDS:MedicSelect(%d, %d)", idx, target_idx)
-                record_line(cmd, "Medic: " .. idx .. " -> " .. target_idx)
-                handled = true
-                return
-            end
-        end
-		
         if a1 == "Voting" and a2 == "Skip" then
             record_line("TDS:VoteSkip()", "Voted to skip wave")
             handled = true
@@ -623,16 +611,6 @@ return function(ctx)
                 handle_namecall(remote, method, args)
             end
 
-            if not Globals.__recorder_bindable then
-                Globals.__recorder_bindable = Instance.new("BindableEvent")
-                Globals.__recorder_bindable.Event:Connect(function(packet)
-                    local handler = Globals.__tds_recorder_handler
-                    if handler then
-                        pcall(handler, packet.remote, packet.method, packet.args)
-                    end
-                end)
-            end
-
             if not Globals.__tds_recorder_hooked then
                 Globals.__tds_recorder_hooked = true
                 local original
@@ -642,16 +620,14 @@ return function(ctx)
                     local results = table.pack(original(self, ...))
                     local handler = Globals.__tds_recorder_handler
                     if handler and method then
-                        Globals.__recorder_bindable:Fire({
-                            remote = self,
-                            method = method,
-                            args = args
-                        })
+                        task.spawn(function()
+                            pcall(handler, self, method, args)
+                        end)
                     end
                     return table.unpack(results, 1, results.n)
                 end)
             end
-		end
+        end
 
         RecorderTab:Button({
             Title = "START",

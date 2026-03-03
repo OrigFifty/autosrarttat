@@ -97,9 +97,9 @@ return function(ctx)
     local serialize_table
     local serialize_table_raw
 
-    local function format_key(key)
+	local function format_key(key)
         if type(key) == "string" and key:match("^[_%a][_%w]*$") then
-            return key
+            return "[" .. string.format("%q", key) .. "]"
         end
         if type(key) == "number" then
             return "[" .. num_to_str(key) .. "]"

@@ -435,13 +435,18 @@ return function(ctx)
 		local a5 = args[5]
 
 		--fix
-       if a1 == "Troops" and a2 == "Abilities" then
-            local payload = type(a3) == "table" and a3 or (type(a4) == "table" and a4)
-            if payload then
-                local idx = resolve_tower_index(payload.Troop)
-                local name = payload.Name
+       local a1 = args[1]
+        local a2 = args[2]
+        local a3 = args[3]
+        local a4 = args[4]
+		local a5 = args[5]
+
+        if a1 == "Troops" and a2 == "Abilities" and a3 == "Activate" then
+            if type(a4) == "table" then
+                local idx = resolve_tower_index(a4.Troop)
+                local name = a4.Name
                 if idx and type(name) == "string" then
-                    local data = payload.Data
+                    local data = a4.Data
                     local cmd
                     if data == nil or (type(data) == "table" and next(data) == nil) then
                         cmd = string.format("TDS:Ability(%d, %s)", idx, string.format("%q", name))
@@ -461,11 +466,10 @@ return function(ctx)
             end
         end
 
-        if a1 == "Troops" and a2 == "Target" then
-            local payload = type(a3) == "table" and a3 or (type(a4) == "table" and a4)
-            if payload then
-                local idx = resolve_tower_index(payload.Troop)
-                local target_type = payload.Target
+        if a1 == "Troops" and a2 == "Target" and a3 == "Set" then
+            if type(a4) == "table" then
+                local idx = resolve_tower_index(a4.Troop)
+                local target_type = a4.Target
                 if idx and type(target_type) == "string" then
                     local cmd = string.format("TDS:SetTarget(%d, %s)", idx, string.format("%q", target_type))
                     record_line(cmd, "Target: " .. idx .. " -> " .. target_type)
@@ -477,10 +481,10 @@ return function(ctx)
 
         if a1 == "Troops" and a2 == "Option" then
             local payload = type(a3) == "table" and a3 or (type(a4) == "table" and a4)
-            if payload then
+			if payload then
                 local idx = resolve_tower_index(payload.Troop)
-                local opt_name = payload.Name or payload.Option or payload.Key or payload.Track
-                local opt_val = payload.Value or payload.Val
+                local opt_name = payload.Name or payload.Option or payload.Key or payload.Track or (payload["Unit 1"] and "Unit 1") or (payload["Unit 2"] and "Unit 2") or (payload["Unit 3"] and "Unit 3") or (payload.Trap and "Trap")
+                local opt_val = payload.Value or payload.Val or payload["Unit 1"] or payload["Unit 2"] or payload["Unit 3"] or payload.Trap
                 if idx and type(opt_name) == "string" then
                     local cmd = string.format(
                         "TDS:SetOption(%d, %s, %s)",
@@ -494,18 +498,13 @@ return function(ctx)
                 end
             end
         end
-		
-		--fix
+
 		if a1 == "Troops" and a2 == "TowerServerEvent" and a3 == "ToggleSelectedTower" then
-            local idx = resolve_tower_index(a4)
+            local medic_idx = resolve_tower_index(a4)
             local target_idx = resolve_tower_index(a5)
-            if idx and target_idx then
-                local cmd = string.format(
-                    "TDS:MedicSelect(%d, %d)",
-                    idx,
-                    target_idx
-                )
-                record_line(cmd, "Medic: " .. idx .. " -> " .. target_idx)
+            if medic_idx and target_idx then
+                local cmd = string.format("TDS:MedicSelect(%d, %d)", medic_idx, target_idx)
+                record_line(cmd, "Medic: " .. medic_idx .. " -> " .. target_idx)
                 handled = true
                 return
             end

@@ -434,8 +434,10 @@ return function(ctx)
 		--fix
 		local a5 = args[5]
 
-        if a1 == "Troops" and a2 == "Abilities" and a3 == "Activate" then
-            if type(a4) == "table" then
+		--fix
+        if a1 == "Troops" and a2 == "Abilities" then
+            local payload = type(a3) == "table" and a3 or (type(a4) == "table" and a4)
+            if payload then
                 local idx = resolve_tower_index(a4.Troop)
                 local name = a4.Name
                 if idx and type(name) == "string" then
@@ -458,9 +460,11 @@ return function(ctx)
                 end
             end
         end
-
-        if a1 == "Troops" and a2 == "Target" and a3 == "Set" then
-            if type(a4) == "table" then
+		
+		--fix
+        if a1 == "Troops" and a2 == "Target" then
+            local payload = type(a3) == "table" and a3 or (type(a4) == "table" and a4)
+            if payload then
                 local idx = resolve_tower_index(a4.Troop)
                 local target_type = a4.Target
                 if idx and type(target_type) == "string" then
@@ -472,8 +476,10 @@ return function(ctx)
             end
         end
 
-        if a1 == "Troops" and a2 == "Option" and a3 == "Set" then
-            if type(a4) == "table" then
+		--fix
+        if a1 == "Troops" and a2 == "Option" then
+            local payload = type(a3) == "table" and a3 or (type(a4) == "table" and a4)
+            if payload then
                 local idx = resolve_tower_index(a4.Troop)
                 local opt_name = a4.Name or a4.Option or a4.Key or a4.Track
                 local opt_val = a4.Value or a4.Val
@@ -490,6 +496,7 @@ return function(ctx)
                 end
             end
         end
+		
 		--fix
 		if a1 == "Troops" and a2 == "TowerServerEvent" and a3 == "ToggleSelectedTower" then
             local idx = resolve_tower_index(a4)

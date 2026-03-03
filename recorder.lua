@@ -97,9 +97,9 @@ return function(ctx)
     local serialize_table
     local serialize_table_raw
 
-	local function format_key(key)
+    local function format_key(key)
         if type(key) == "string" and key:match("^[_%a][_%w]*$") then
-            return "[" .. string.format("%q", key) .. "]"
+            return key
         end
         if type(key) == "number" then
             return "[" .. num_to_str(key) .. "]"
@@ -472,9 +472,9 @@ return function(ctx)
             end
         end
 
-        if a1 == "Troops" and a2 == "Option" then
+		if a1 == "Troops" and a2 == "Option" then
             local payload = type(a3) == "table" and a3 or (type(a4) == "table" and a4)
-			if payload then
+            if payload then
                 local idx = resolve_tower_index(payload.Troop)
                 local opt_name = payload.Name or payload.Option or payload.Key or payload.Track or (payload["Unit 1"] and "Unit 1") or (payload["Unit 2"] and "Unit 2") or (payload["Unit 3"] and "Unit 3") or (payload.Trap and "Trap")
                 local opt_val = payload.Value or payload.Val or payload["Unit 1"] or payload["Unit 2"] or payload["Unit 3"] or payload.Trap
@@ -491,13 +491,18 @@ return function(ctx)
                 end
             end
         end
-
+		
+		--fix
 		if a1 == "Troops" and a2 == "TowerServerEvent" and a3 == "ToggleSelectedTower" then
-            local medic_idx = resolve_tower_index(a4)
+            local idx = resolve_tower_index(a4)
             local target_idx = resolve_tower_index(a5)
-            if medic_idx and target_idx then
-                local cmd = string.format("TDS:MedicSelect(%d, %d)", medic_idx, target_idx)
-                record_line(cmd, "Medic: " .. medic_idx .. " -> " .. target_idx)
+            if idx and target_idx then
+                local cmd = string.format(
+                    "TDS:MedicSelect(%d, %d)",
+                    idx,
+                    target_idx
+                )
+                record_line(cmd, "Medic: " .. idx .. " -> " .. target_idx)
                 handled = true
                 return
             end

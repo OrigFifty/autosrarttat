@@ -651,6 +651,7 @@ return function(ctx)
                     return table.unpack(results, 1, results.n)
                 end)
             end
+		end
 
         RecorderTab:Button({
             Title = "START",

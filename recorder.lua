@@ -21,17 +21,15 @@ return function(ctx)
     local Recorder
     local has_hook = type(hookmetamethod) == "function"
 
+	Globals.__action_queue = Globals.__action_queue or {}
+
     local function record_action(command_str)
         if not Globals.record_strat then return end
-        if appendfile then
-            appendfile("Strat.txt", command_str .. "\n")
-        end
+        table.insert(Globals.__action_queue, { cmd_line = command_str })
     end
 
     local function log_line(message)
-        if Recorder and Recorder.Log then
-            Recorder:Log(message)
-        end
+        table.insert(Globals.__action_queue, { ui_msg = message })
     end
 
     local function resolve_tower_index(tower)
@@ -187,9 +185,9 @@ return function(ctx)
                 parts[i] = num_to_str(comps[i])
             end
             return "CFrame.new(" .. table.concat(parts, ", ") .. ")"
-        elseif t == "Instance" then
-            local full = v:GetFullName()
-            if type(full) == "string" and full ~= "" then
+		elseif t == "Instance" then
+            local success, full = pcall(function() return v:GetFullName() end)
+            if success and type(full) == "string" and full ~= "" then
                 local parts = string.split(full, ".")
                 local expr = 'game:GetService("' .. parts[1] .. '")'
                 for i = 2, #parts do
@@ -201,8 +199,12 @@ return function(ctx)
                     end
                 end
                 return expr
+            else
+                local safe_name, safe_class = "Unknown", "Instance"
+                pcall(function() safe_name = v.Name end)
+                pcall(function() safe_class = v.ClassName end)
+                return string.format('"%s_Fingerprint_%s"', safe_class, safe_name)
             end
-            return "nil"
         elseif t == "table" then
             return serialize_table_raw(v, depth + 1)
         end
@@ -271,8 +273,8 @@ return function(ctx)
             return nil
         end
 
-        local full = remote:GetFullName()
-        if type(full) ~= "string" or full == "" then
+        local success, full = pcall(function() return remote:GetFullName() end)
+        if not success or type(full) ~= "string" or full == "" then
             return nil
         end
 
@@ -308,8 +310,8 @@ return function(ctx)
         end
 
         if typeof(remote) == "Instance" then
-            local full = remote:GetFullName()
-            if type(full) == "string" then
+            local success, full = pcall(function() return remote:GetFullName() end)
+            if success and type(full) == "string" then
                 local lower = full:lower()
                 if lower:find("consum") then
                     return true
@@ -793,4 +795,20 @@ TDS:GameInfo("%s", {%s})
             end)
         end
     end
+    task.spawn(function()
+        Globals.__action_queue = Globals.__action_queue or {}
+        while task.wait(0.1) do
+            if #Globals.__action_queue > 0 then
+                local packet = table.remove(Globals.__action_queue, 1)
+                
+                if packet.cmd_line and appendfile then
+                    pcall(function() appendfile("Strat.txt", packet.cmd_line .. "\n") end)
+                end
+                
+                if packet.ui_msg and Recorder and Recorder.Log then
+                    pcall(function() Recorder:Log(packet.ui_msg) end)
+                end
+            end
+        end
+    end)
 end

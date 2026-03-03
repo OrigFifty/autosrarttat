@@ -796,18 +796,17 @@ TDS:GameInfo("%s", {%s})
             end)
         end
     end
+   task.spawn(function()
+       Globals.__recorder_queue = Globals.__recorder_queue or {}
+       while task.wait() do
+           if #Globals.__recorder_queue > 0 then
+               local packet = table.remove(Globals.__recorder_queue, 1)
+               local handler = Globals.__tds_recorder_handler
+               if handler then
+                   -- Safely read the data with native God Mode permissions
+                   pcall(handler, packet.self, packet.method, packet.args)
+               end
+           end
+       end
+   end)
 end
-
-task.spawn(function()
-    Globals.__recorder_queue = Globals.__recorder_queue or {}
-    while task.wait() do
-        if #Globals.__recorder_queue > 0 then
-            local packet = table.remove(Globals.__recorder_queue, 1)
-            local handler = Globals.__tds_recorder_handler
-            if handler then
-                -- Safely read the data with native God Mode permissions
-                pcall(handler, packet.self, packet.method, packet.args)
-            end
-        end
-    end
-end)

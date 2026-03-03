@@ -1,14 +1,14 @@
 local Globals = getgenv()
 
--- [DEBUG TOGGLE]
-Globals.__TDS_DEBUG = true 
+-- [ULTRA DEBUG TOGGLE]
+Globals.__TDS_DEBUG = true
 
 return function(ctx)
     if not ctx or not ctx.Window then
         return
     end
 
-    local Window = ctx.Window
+	local Window = ctx.Window
     local replicated_storage = ctx.ReplicatedStorage or game:GetService("ReplicatedStorage")
     local http_service = ctx.HttpService or game:GetService("HttpService")
     local game_state = ctx.GameState or "UNKNOWN"
@@ -24,10 +24,10 @@ return function(ctx)
     local Recorder
     local has_hook = type(hookmetamethod) == "function"
 
-    -- [DEBUG LOGGER]
-    local function debug_warn(msg)
+    -- [SAFE LOGGER]
+    local function dlog(msg)
         if Globals.__TDS_DEBUG then
-            warn("[TDS-DEBUG] " .. tostring(msg))
+            warn("[TDS-ULTRA-DEBUG] " .. tostring(msg))
         end
     end
 
@@ -45,9 +45,12 @@ return function(ctx)
     end
 
     local function resolve_tower_index(tower)
-        if typeof(tower) ~= "Instance" then return nil end
-        if spawned_towers[tower] then return spawned_towers[tower] end
-
+        if typeof(tower) ~= "Instance" then
+            return nil
+        end
+        if spawned_towers[tower] then
+            return spawned_towers[tower]
+        end
         local current = tower.Parent
         while current do
             if spawned_towers[current] then
@@ -62,10 +65,8 @@ return function(ctx)
         if game_state ~= "GAME" then return end
         local towers_folder = workspace_ref:FindFirstChild("Towers")
         if not towers_folder then return end
-
         table.clear(spawned_towers)
         tower_count = 0
-
         for _, tower in ipairs(towers_folder:GetChildren()) do
             local replicator = tower:FindFirstChild("TowerReplicator")
             if replicator and replicator:GetAttribute("OwnerId") == local_player.UserId then
@@ -87,7 +88,7 @@ return function(ctx)
 
     local function format_key(key)
         if type(key) == "string" and key:match("^[_%a][_%w]*$") then
-            return "[" .. string.format("%q", key) .. "]"
+            return key
         end
         if type(key) == "number" then
             return "[" .. num_to_str(key) .. "]"
@@ -111,8 +112,11 @@ return function(ctx)
         if t == "string" then return string.format("%q", v)
         elseif t == "number" then return num_to_str(v)
         elseif t == "boolean" then return tostring(v)
-        elseif t == "Vector3" then return string.format("Vector3.new(%s, %s, %s)", num_to_str(v.X), num_to_str(v.Y), num_to_str(v.Z))
+        elseif t == "Vector3" then
+            dlog("-> Serializing Vector3 in serialize_value")
+            return string.format("Vector3.new(%s, %s, %s)", num_to_str(v.X), num_to_str(v.Y), num_to_str(v.Z))
         elseif t == "CFrame" then
+            dlog("-> Serializing CFrame in serialize_value")
             local comps = {v:GetComponents()}
             local parts = {}
             for i = 1, #comps do parts[i] = num_to_str(comps[i]) end
@@ -121,7 +125,8 @@ return function(ctx)
             local idx = resolve_tower_index(v)
             if idx then return tostring(idx) end
             return "nil"
-        elseif t == "table" then return serialize_table(v, depth + 1)
+        elseif t == "table" then
+            return serialize_table(v, depth + 1)
         end
         return "nil"
     end
@@ -133,15 +138,20 @@ return function(ctx)
         if t == "string" then return string.format("%q", v)
         elseif t == "number" then return num_to_str(v)
         elseif t == "boolean" then return tostring(v)
-        elseif t == "Vector3" then return string.format("Vector3.new(%s, %s, %s)", num_to_str(v.X), num_to_str(v.Y), num_to_str(v.Z))
+        elseif t == "Vector3" then
+            dlog("-> Serializing Vector3 in serialize_value_raw")
+            return string.format("Vector3.new(%s, %s, %s)", num_to_str(v.X), num_to_str(v.Y), num_to_str(v.Z))
         elseif t == "CFrame" then
+            dlog("-> Serializing CFrame in serialize_value_raw")
             local comps = {v:GetComponents()}
             local parts = {}
             for i = 1, #comps do parts[i] = num_to_str(comps[i]) end
             return "CFrame.new(" .. table.concat(parts, ", ") .. ")"
         elseif t == "Instance" then
-            local success, full = pcall(function() return v:GetFullName() end)
-            if success and type(full) == "string" and full ~= "" then
+            dlog("-> DANGER ZONE: About to call v:GetFullName() in serialize_value_raw")
+            local full = v:GetFullName()
+            dlog("-> SUCCESS: Survived v:GetFullName()")
+            if type(full) == "string" and full ~= "" then
                 local parts = string.split(full, ".")
                 local expr = 'game:GetService("' .. parts[1] .. '")'
                 for i = 2, #parts do
@@ -150,13 +160,10 @@ return function(ctx)
                     else expr = expr .. "[" .. string.format("%q", part) .. "]" end
                 end
                 return expr
-            else
-                local safe_name, safe_class = "Unknown", "Instance"
-                pcall(function() safe_name = v.Name end)
-                pcall(function() safe_class = v.ClassName end)
-                return string.format('"%s_Fingerprint_%s"', safe_class, safe_name)
             end
-        elseif t == "table" then return serialize_table_raw(v, depth + 1)
+            return "nil"
+        elseif t == "table" then
+            return serialize_table_raw(v, depth + 1)
         end
         return "nil"
     end
@@ -168,7 +175,9 @@ return function(ctx)
             for i = 1, max_idx do parts[i] = serialize_value(tbl[i], depth) end
         else
             local keys = {}
+            dlog("-> DANGER ZONE: About to use pairs() loop in serialize_table")
             for k, _ in pairs(tbl) do table.insert(keys, k) end
+            dlog("-> SUCCESS: Survived pairs() loop in serialize_table")
             table.sort(keys, function(a, b) return tostring(a) < tostring(b) end)
             for _, k in ipairs(keys) do
                 table.insert(parts, format_key(k) .. " = " .. serialize_value(tbl[k], depth))
@@ -184,7 +193,9 @@ return function(ctx)
             for i = 1, max_idx do parts[i] = serialize_value_raw(tbl[i], depth) end
         else
             local keys = {}
+            dlog("-> DANGER ZONE: About to use pairs() loop in serialize_table_raw")
             for k, _ in pairs(tbl) do table.insert(keys, k) end
+            dlog("-> SUCCESS: Survived pairs() loop in serialize_table_raw")
             table.sort(keys, function(a, b) return tostring(a) < tostring(b) end)
             for _, k in ipairs(keys) do
                 local key_str
@@ -199,9 +210,10 @@ return function(ctx)
 
     local function build_remote_call(remote, method, args)
         if typeof(remote) ~= "Instance" then return nil end
-        local success, full = pcall(function() return remote:GetFullName() end)
-        if not success or type(full) ~= "string" or full == "" then return nil end
-
+        dlog("-> DANGER ZONE: About to call remote:GetFullName() in build_remote_call")
+        local full = remote:GetFullName()
+        dlog("-> SUCCESS: Survived remote:GetFullName()")
+        if type(full) ~= "string" or full == "" then return nil end
         local parts = string.split(full, ".")
         local expr = 'game:GetService("' .. parts[1] .. '")'
         for i = 2, #parts do
@@ -209,7 +221,6 @@ return function(ctx)
             if part:match("^[_%a][_%w]*$") then expr = expr .. "." .. part
             else expr = expr .. "[" .. string.format("%q", part) .. "]" end
         end
-
         local arg_parts = {}
         for i = 1, #args do arg_parts[i] = serialize_value_raw(args[i]) end
         return expr .. ":" .. method .. "(" .. table.concat(arg_parts, ", ") .. ")"
@@ -223,27 +234,67 @@ return function(ctx)
             if lower:find("item") and type(args[2]) == "string" and tostring(args[2]):lower():find("use") then return true end
         end
         if typeof(remote) == "Instance" then
-            local success, full = pcall(function() return remote:GetFullName() end)
-            if success and type(full) == "string" then
+            dlog("-> Checking remote name for consumables")
+            local s, full = pcall(function() return remote:GetFullName() end)
+            if s and type(full) == "string" then
                 local lower = full:lower()
-                if lower:find("consum") or (lower:find("item") and lower:find("use")) then return true end
+                if lower:find("consum") then return true end
+                if lower:find("item") and lower:find("use") then return true end
             end
         end
         return false
     end
 
-    -- [DEBUG UTILITY] Safely dump arguments without crashing Identity 2
-    local function dump_args_safely(args)
-        local out = {}
-        for i, v in pairs(args) do
-            local success, res = pcall(function()
-                if typeof(v) == "Instance" then return "Instance("..v.ClassName..")" end
-                if type(v) == "table" then return "Table(size:"..#v..")" end
-                return tostring(v)
-            end)
-            table.insert(out, "["..tostring(i).."] = " .. (success and res or "ERR"))
+    local function any_string_contains(args, token)
+        for i = 1, #args do
+            local v = args[i]
+            if type(v) == "string" then
+                local lower = v:lower()
+                if lower:find(token, 1, true) then return true end
+            end
         end
-        return table.concat(out, " | ")
+        return false
+    end
+
+    local function collect_non_keyword_strings(args)
+        local keywords = {troops=true, troop=true, option=true, options=true, target=true, ability=true, abilities=true, activate=true, set=true, voting=true, skip=true, inventory=true, equip=true, unequip=true, tower=true}
+        local list = {}
+        for i = 1, #args do
+            local v = args[i]
+            if type(v) == "string" then
+                local lower = v:lower()
+                if not keywords[lower] then table.insert(list, v) end
+            end
+        end
+        return list
+    end
+
+    local function find_payload(args)
+        dlog("-> Searching args for 'Troop' or 'Tower' payload table")
+        for i = 1, #args do
+            local v = args[i]
+            if type(v) == "table" then
+                local s, result = pcall(function() return v.Troop or v.troop or v.Tower or v.tower end)
+                if s and result then return v end
+            end
+        end
+        return nil
+    end
+
+    local function find_tower_arg(args)
+        for i = 1, #args do
+            local v = args[i]
+            if typeof(v) == "Instance" then
+                local idx = resolve_tower_index(v)
+                if idx then return v end
+            end
+        end
+        return nil
+    end
+
+    local function record_line(line, message)
+        record_action(line)
+        if message then log_line(message) end
     end
 
     local function handle_namecall(remote, method, args)
@@ -254,88 +305,163 @@ return function(ctx)
         local a2 = args[2]
         local a3 = args[3]
         local a4 = args[4]
-        local a5 = args[5]
 
-        -- [HEAVY DEBUGGING] - Print every single relevant remote call to F9 console
-        if type(a1) == "string" and (a1 == "Troops" or a1 == "Streaming" or a1 == "Hotbar" or a1 == "Inventory") then
-            debug_warn("Intercepted: " .. method .. " | Arg1: " .. a1 .. " | Arg2: " .. tostring(a2))
-            debug_warn("Raw Args: " .. dump_args_safely(args))
+        -- Filter spam to keep console clean. Only log relevant actions.
+        if type(a1) == "string" and (a1 == "Troops" or a1 == "Voting" or a1 == "Inventory") then
+            dlog("-----------------------------------------")
+            dlog(">>> NEW INCOMING REMOTE: " .. tostring(a1) .. " | " .. tostring(a2) .. " | " .. tostring(a3))
         end
 
         local handled = false
 
-        if method == "InvokeServer" and a1 == "Troops" and a2 == "Place" then
-            debug_warn("-> MATCHED PLACEMENT LOGIC")
-            local tower_name = args[3]
-            local payload = args[4]
-            if type(tower_name) == "string" and type(payload) == "table" then
-                local pos = payload.Position
-                if pos and typeof(pos) == "Vector3" then
-                    local cmd = string.format('TDS:Place("%s", %s, %s, %s)', tower_name, num_to_str(pos.X), num_to_str(pos.Y), num_to_str(pos.Z))
-                    record_line(cmd)
-                    log_line("Placed Network: " .. tower_name)
-                    debug_warn("-> SUCCESSFULLY RECORDED PLACE")
-                    handled = true
-                    return
-                end
-            end
-        end
-
-        if method == "FireServer" and a1 == "Streaming" and a2 == "SelectTower" then
-            debug_warn("-> MATCHED SELECTION LOGIC")
-            local target_tower = args[3]
-            local idx = resolve_tower_index(target_tower)
-            if idx then
-                record_line(string.format("-- Selected Tower %d", idx))
-                log_line("Selected: " .. idx)
-                handled = true
-                return
-            else
-                debug_warn("-> FAILED: Could not resolve tower index for selection.")
-            end
-        end
-
-        if method == "FireServer" and a1 == "Hotbar" and a2 == "Click" then
-            local slot = args[3]
-            record_line(string.format("-- Clicked Hotbar Slot %s", tostring(slot)))
-            log_line("Hotbar: " .. tostring(slot))
-            handled = true
-            return
-        end
-
         if a1 == "Troops" and a2 == "Abilities" and a3 == "Activate" then
+            dlog(">>> Entering Ability Block")
             if type(a4) == "table" then
                 local idx = resolve_tower_index(a4.Troop)
                 local name = a4.Name
                 if idx and type(name) == "string" then
                     local data = a4.Data
                     local cmd
+                    dlog(">>> Calling Ability Serialization")
                     if data == nil or (type(data) == "table" and next(data) == nil) then
                         cmd = string.format("TDS:Ability(%d, %s)", idx, string.format("%q", name))
                     else
                         cmd = string.format("TDS:Ability(%d, %s, %s)", idx, string.format("%q", name), serialize_value(data))
                     end
-                    record_line(cmd)
-                    log_line("Ability: " .. name .. " (Index: " .. idx .. ")")
+                    dlog(">>> Ability Serialization Finished!")
+                    record_line(cmd, "Ability: " .. name .. " (Index: " .. idx .. ")")
                     handled = true
                     return
                 end
             end
         end
 
-        if a1 == "Troops" and a2 == "TowerServerEvent" and a3 == "ToggleSelectedTower" then
-            debug_warn("-> MATCHED MEDIC LOGIC")
-            local idx = resolve_tower_index(a4)
-            local target_idx = resolve_tower_index(a5)
-            if idx and target_idx then
-                local cmd = string.format("TDS:MedicSelect(%d, %d)", idx, target_idx)
-                record_line(cmd)
-                log_line("Medic: " .. idx .. " -> " .. target_idx)
-                handled = true
-                return
-            else
-                debug_warn("-> FAILED: Could not resolve Medic indexes. Medic: " .. tostring(idx) .. " Target: " .. tostring(target_idx))
+        if a1 == "Troops" and a2 == "Target" and a3 == "Set" then
+            dlog(">>> Entering Target Block")
+            if type(a4) == "table" then
+                local idx = resolve_tower_index(a4.Troop)
+                local target_type = a4.Target
+                if idx and type(target_type) == "string" then
+                    local cmd = string.format("TDS:SetTarget(%d, %s)", idx, string.format("%q", target_type))
+                    record_line(cmd, "Target: " .. idx .. " -> " .. target_type)
+                    handled = true
+                    return
+                end
             end
+        end
+
+        if a1 == "Troops" and a2 == "Option" and a3 == "Set" then
+            dlog(">>> Entering Option Block")
+            if type(a4) == "table" then
+                local idx = resolve_tower_index(a4.Troop)
+                local opt_name = a4.Name or a4.Option or a4.Key or a4.Track
+                local opt_val = a4.Value or a4.Val
+                if idx and type(opt_name) == "string" then
+                    dlog(">>> Calling Option Serialization")
+                    local cmd = string.format(
+                        "TDS:SetOption(%d, %s, %s)",
+                        idx,
+                        string.format("%q", opt_name),
+                        serialize_value(opt_val)
+                    )
+                    dlog(">>> Option Serialization Finished!")
+                    record_line(cmd, "Option: " .. idx .. " " .. opt_name .. " = " .. tostring(opt_val))
+                    handled = true
+                    return
+                end
+            end
+        end
+
+        if a1 == "Voting" and a2 == "Skip" then
+            dlog(">>> Entering Voting Block")
+            record_line("TDS:VoteSkip()", "Voted to skip wave")
+            handled = true
+            return
+        end
+
+        if a1 == "Inventory" and a2 == "Equip" and a3 == "tower" then
+            dlog(">>> Entering Equip Block")
+            if type(args[4]) == "string" then
+                local tower_name = args[4]
+                local cmd = string.format("TDS:Equip(%s)", string.format("%q", tower_name))
+                record_line(cmd, "Equipped: " .. tower_name)
+            end
+            handled = true
+            return
+        end
+
+        if a1 == "Inventory" and a2 == "Unequip" and a3 == "tower" then
+            dlog(">>> Entering Unequip Block")
+            if type(args[4]) == "string" then
+                local tower_name = args[4]
+                local cmd = string.format("TDS:Unequip(%s)", string.format("%q", tower_name))
+                record_line(cmd, "Unequipped: " .. tower_name)
+            end
+            handled = true
+            return
+        end
+
+        if is_consumable_call(remote, args) then
+            dlog(">>> Entering Consumable Block")
+            local raw_call = build_remote_call(remote, method, args)
+            if raw_call then record_line(raw_call, "Consumable used") end
+            handled = true
+            return
+        end
+
+        if handled then return end
+        if a1 ~= "Troops" then return end
+
+        dlog(">>> Entering Fallback Parsing Block (Heavy)")
+        local payload = find_payload(args)
+        local tower_obj = payload and (payload.Troop or payload.troop or payload.Tower or payload.tower) or find_tower_arg(args)
+        local idx = resolve_tower_index(tower_obj)
+        if not idx then return end
+
+        local strings = collect_non_keyword_strings(args)
+        local has_option = any_string_contains(args, "option") or any_string_contains(args, "track")
+        local has_ability = any_string_contains(args, "abil")
+        local has_target = any_string_contains(args, "target")
+
+        if has_option then
+            dlog("-> Processing Fallback Option")
+            local opt_name = payload and (payload.Name or payload.Option or payload.Key or payload.Track)
+            local opt_val = payload and (payload.Value or payload.Val)
+            if not opt_name and #strings >= 1 then opt_name = strings[1] end
+            if opt_val == nil and #strings >= 2 then opt_val = strings[2] end
+            if not opt_name and any_string_contains(args, "track") then opt_name = "Track" end
+
+            if opt_name then
+                local cmd = string.format("TDS:SetOption(%d, %s, %s)", idx, string.format("%q", opt_name), serialize_value(opt_val))
+                record_line(cmd, "Option: " .. idx .. " " .. opt_name .. " = " .. tostring(opt_val))
+            end
+            return
+        end
+
+        if has_target then
+            dlog("-> Processing Fallback Target")
+            local target_type = payload and payload.Target or (#strings >= 1 and strings[1] or nil)
+            if target_type then
+                local cmd = string.format("TDS:SetTarget(%d, %s)", idx, string.format("%q", target_type))
+                record_line(cmd, "Target: " .. idx .. " -> " .. tostring(target_type))
+            end
+            return
+        end
+
+        if has_ability then
+            dlog("-> Processing Fallback Ability")
+            local name = payload and payload.Name or (#strings >= 1 and strings[1] or nil)
+            if name then
+                local data = payload and payload.Data or nil
+                local cmd
+                if data == nil or (type(data) == "table" and next(data) == nil) then
+                    cmd = string.format("TDS:Ability(%d, %s)", idx, string.format("%q", name))
+                else
+                    cmd = string.format("TDS:Ability(%d, %s, %s)", idx, string.format("%q", name), serialize_value(data))
+                end
+                record_line(cmd, "Ability: " .. name .. " (Index: " .. idx .. ")")
+            end
+            return
         end
     end
 
@@ -357,20 +483,20 @@ return function(ctx)
                     local method = getnamecallmethod and getnamecallmethod() or nil
                     local args = {...}
                     local results = table.pack(original(self, ...))
-                    
                     local handler = Globals.__tds_recorder_handler
+                    
                     if handler and method then
                         task.spawn(function()
-                            -- [DEBUG] Catch if the handler itself fails
+                            -- [THE MOST IMPORTANT FIX FOR DEBUGGING]
+                            -- This forces the executor to display why it failed!
                             local success, err = pcall(handler, self, method, args)
                             if not success then
-                                warn("[TDS-CRITICAL ERROR] Handler crashed: " .. tostring(err))
+                                warn("[TDS-CRITICAL ERROR] The script crashed here: " .. tostring(err))
                             end
                         end)
                     end
                     return table.unpack(results, 1, results.n)
                 end)
-                debug_warn("Hook successfully attached to __namecall")
             end
         end
 
@@ -380,10 +506,11 @@ return function(ctx)
             Callback = function()
                 Recorder:Clear()
                 Recorder:Log("Recorder started")
-                debug_warn("START BUTTON PRESSED - RECORDING ENABLED")
+                dlog("RECORDING SESSION STARTED")
 
                 local current_mode = "Unknown"
                 local current_map = "Unknown"
+                
                 local state_folder = replicated_storage:FindFirstChild("State")
                 if state_folder then
                     current_mode = state_folder.Difficulty.Value
@@ -400,21 +527,39 @@ return function(ctx)
                             local equipped = folder:GetAttribute("EquippedTowers")
                             if type(equipped) == "string" then
                                 local cleaned_json = equipped:match("%[.*%]") 
-                                pcall(function()
-                                    local tower_table = http_service:JSONDecode(cleaned_json)
+                                local success, tower_table = pcall(function() return http_service:JSONDecode(cleaned_json) end)
+                                if success and type(tower_table) == "table" then
                                     tower1 = tower_table[1] or "None"
                                     tower2 = tower_table[2] or "None"
                                     tower3 = tower_table[3] or "None"
                                     tower4 = tower_table[4] or "None"
                                     tower5 = tower_table[5] or "None"
-                                end)
+                                end
+                            end
+                        end
+                        if folder.Name == "ModifierReplicator" then
+                            local raw_votes = folder:GetAttribute("Votes")
+                            if type(raw_votes) == "string" then
+                                local cleaned_json = raw_votes:match("{.*}") 
+                                local success, mod_table = pcall(function() return http_service:JSONDecode(cleaned_json) end)
+                                if success and type(mod_table) == "table" then
+                                    local mods = {}
+                                    for mod_name, _ in pairs(mod_table) do table.insert(mods, mod_name .. " = true") end
+                                    current_modifiers = table.concat(mods, ", ")
+                                end
                             end
                         end
                     end
                 end
 
+                Recorder:Log("Mode: " .. current_mode)
+                Recorder:Log("Map: " .. current_map)
+                Recorder:Log("Towers: " .. tower1 .. ", " .. tower2)
+                Recorder:Log(tower3 .. ", " .. tower4 .. ", " .. tower5)
+
                 sync_existing_towers()
                 Globals.record_strat = true
+                if has_hook then Recorder:Log("Extended recording enabled") else Recorder:Log("Limited recording") end
 
                 if writefile then 
                     local config_header = string.format([[
@@ -425,15 +570,10 @@ TDS:Mode("%s")
 TDS:GameInfo("%s", {%s})
 
 ]], tower1, tower2, tower3, tower4, tower5, current_mode, current_map, current_modifiers)
-                    pcall(function() writefile("Strat.txt", config_header) end)
+                    writefile("Strat.txt", config_header)
                 end
 
-                Window:Notify({
-                    Title = "ADS",
-                    Desc = "Recorder has started, check F9 Console for logs.",
-                    Time = 3,
-                    Type = "normal"
-                })
+                Window:Notify({Title = "ADS", Desc = "Recorder started! Open F9 Console!", Time = 3, Type = "normal"})
             end
         })
 
@@ -444,13 +584,12 @@ TDS:GameInfo("%s", {%s})
                 Globals.record_strat = false
                 Recorder:Clear()
                 Recorder:Log("Strategy saved.")
-                debug_warn("STOP BUTTON PRESSED - RECORDING DISABLED")
+                dlog("RECORDING SESSION STOPPED")
             end
         })
 
         if game_state == "GAME" then
             local towers_folder = workspace_ref:WaitForChild("Towers", 5)
-
             towers_folder.ChildAdded:Connect(function(tower)
                 if not Globals.record_strat then return end
                 local replicator = tower:WaitForChild("TowerReplicator", 5)
@@ -461,7 +600,36 @@ TDS:GameInfo("%s", {%s})
                 tower_count = tower_count + 1
                 local my_index = tower_count
                 spawned_towers[tower] = my_index
-                debug_warn("WORKSPACE ADDED: Assigned Index " .. my_index .. " to " .. tower.Name)
+
+                local tower_name = replicator:GetAttribute("Name") or tower.Name
+                local raw_pos = replicator:GetAttribute("Position")
+                local pos_x, pos_y, pos_z
+                if typeof(raw_pos) == "Vector3" then
+                    pos_x, pos_y, pos_z = raw_pos.X, raw_pos.Y, raw_pos.Z
+                else
+                    local p = tower:GetPivot().Position
+                    pos_x, pos_y, pos_z = p.X, p.Y, p.Z
+                end
+                
+                local command = 'TDS:Place("' .. tower_name .. '", ' .. tostring(pos_x) .. ', ' .. tostring(pos_y) .. ', ' .. tostring(pos_z) .. ')'
+                record_action(command)
+                Recorder:Log("Placed " .. tower_name .. " (Index: " .. my_index .. ")")
+
+                replicator:GetAttributeChangedSignal("Upgrade"):Connect(function()
+                    if not Globals.record_strat then return end
+                    record_action(string.format('TDS:Upgrade(%d)', my_index))
+                    Recorder:Log("Upgraded Tower " .. my_index)
+                end)
+            end)
+
+            towers_folder.ChildRemoved:Connect(function(tower)
+                if not Globals.record_strat then return end
+                local my_index = spawned_towers[tower]
+                if my_index then
+                    record_action(string.format('TDS:Sell(%d)', my_index))
+                    Recorder:Log("Sold Tower " .. my_index)
+                    spawned_towers[tower] = nil
+                end
             end)
         end
     end

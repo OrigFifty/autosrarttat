@@ -620,9 +620,9 @@ return function(ctx)
                     local results = table.pack(original(self, ...))
                     local handler = Globals.__tds_recorder_handler
                     if handler and method then
-                        task.spawn(function()
-                            pcall(handler, self, method, args)
-                        end)
+							coroutine.wrap(function()
+                               pcall(handler, self, method, args)
+                       end)()
                     end
                     return table.unpack(results, 1, results.n)
                 end)

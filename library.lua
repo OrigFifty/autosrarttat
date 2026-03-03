@@ -3167,19 +3167,6 @@ function TDS:SetOption(idx, name, val, ReqWave)
     end
     return false
 end
---fix
-function TDS:MedicSelect(idx, val)
-    local t = self.PlacedTowers[idx]
-    local target = self.PlacedTowers[val]
-    
-    if t and target then
-        Logger:Log("Medic: " .. tostring(idx) .. " -> " .. tostring(val))
-        RemoteFunc:InvokeServer("Troops", "TowerServerEvent", "ToggleSelectedTower", t, target)
-        return true
-    end
-    
-    return false
-end
 
 -- // misc utility
 local function IsVoidCharm(obj)

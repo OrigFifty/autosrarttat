@@ -632,7 +632,7 @@ return function(ctx)
                     local results = table.pack(original(self, ...))
                     local handler = Globals.__tds_recorder_handler
                     if handler and method then
-                        task.spawn(function()
+                        task.defer(function()
                                pcall(handler, self, method, args)
                         end)
 					end

@@ -98,14 +98,9 @@ return function(ctx)
     local serialize_table_raw
 
     local function format_key(key)
-        if type(key) == "string" and key:match("^[_%a][_%w]*$") then
-            return key
-        end
-        if type(key) == "number" then
-            return "[" .. num_to_str(key) .. "]"
-        end
-        return "[" .. serialize_value(key) .. "]"
-    end
+        if type(key) == "string" and key:match("^[_%a][_%w]*$") then return string.format("[%q]", key) end
+        return string.format("[%s]", type(key) == "number" and num_to_str(key) or serialize_value(key))
+	end
 
     local function is_array(tbl)
         local max_idx = 0
@@ -638,8 +633,6 @@ return function(ctx)
                     local handler = Globals.__tds_recorder_handler
                     if handler and method then
                         task.spawn(function()
-							local elevate = setthreadidentity or setidentity or setthreadcontext
-                            if elevate then elevate(7) end
                                pcall(handler, self, method, args)
                         end)
 					end

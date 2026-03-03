@@ -621,11 +621,11 @@ return function(ctx)
                     local handler = Globals.__tds_recorder_handler
                     if handler and method then
                         task.spawn(function()
-                            local elevate = setthreadidentity or setidentity or setthreadcontext
+							local elevate = setthreadidentity or setidentity or setthreadcontext
                             if elevate then elevate(7) end
                                pcall(handler, self, method, args)
                         end)
-                    end
+					end
                     return table.unpack(results, 1, results.n)
                 end)
             end

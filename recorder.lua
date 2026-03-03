@@ -434,13 +434,6 @@ return function(ctx)
 		--fix
 		local a5 = args[5]
 
-		--fix
-       local a1 = args[1]
-        local a2 = args[2]
-        local a3 = args[3]
-        local a4 = args[4]
-		local a5 = args[5]
-
         if a1 == "Troops" and a2 == "Abilities" and a3 == "Activate" then
             if type(a4) == "table" then
                 local idx = resolve_tower_index(a4.Troop)

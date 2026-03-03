@@ -471,11 +471,12 @@ return function(ctx)
             end
         end
 
-        if a1 == "Troops" and a2 == "Option" and a3 == "Set" then
-            if type(a4) == "table" then
-                local idx = resolve_tower_index(a4.Troop)
-                local opt_name = a4.Name or a4.Option or a4.Key or a4.Track
-                local opt_val = a4.Value or a4.Val
+        if a1 == "Troops" and a2 == "Option" then
+            local payload = type(a3) == "table" and a3 or (type(a4) == "table" and a4)
+            if payload then
+                local idx = resolve_tower_index(payload.Troop)
+                local opt_name = payload.Name or payload.Option or payload.Key or payload.Track or (payload["Unit 1"] and "Unit 1") or (payload["Unit 2"] and "Unit 2") or (payload["Unit 3"] and "Unit 3") or (payload.Trap and "Trap")
+                local opt_val = payload.Value or payload.Val or payload["Unit 1"] or payload["Unit 2"] or payload["Unit 3"] or payload.Trap
                 if idx and type(opt_name) == "string" then
                     local cmd = string.format(
                         "TDS:SetOption(%d, %s, %s)",
@@ -490,7 +491,7 @@ return function(ctx)
             end
         end
 
-		if a1 == "Troops" and a2 == "TowerServerEvent" and a3 == "ToggleSelectedTower" then
+        if a1 == "Troops" and a2 == "TowerServerEvent" and a3 == "ToggleSelectedTower" then
             local idx = resolve_tower_index(a4)
             local target_idx = resolve_tower_index(args[5])
             if idx and target_idx then

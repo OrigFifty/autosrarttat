@@ -624,8 +624,7 @@ return function(ctx)
                             local elevate = setthreadidentity or setidentity or setthreadcontext
                             if elevate then elevate(7) end
                                pcall(handler, self, method, args)
-                            end)
-						end
+                        end)
                     end
                     return table.unpack(results, 1, results.n)
                 end)

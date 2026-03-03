@@ -431,6 +431,7 @@ return function(ctx)
         local a2 = args[2]
         local a3 = args[3]
         local a4 = args[4]
+		local a5 = args[5]
 
         if a1 == "Troops" and a2 == "Abilities" and a3 == "Activate" then
             if type(a4) == "table" then
@@ -489,6 +490,17 @@ return function(ctx)
             end
         end
 
+		if a1 == "Troops" and a2 == "TowerServerEvent" and a3 == "ToggleSelectedTower" then
+            local idx = resolve_tower_index(a4)
+            local target_idx = resolve_tower_index(a5)
+            if idx and target_idx then
+                local cmd = string.format("TDS:MedicSelect(%d, %d)", idx, target_idx)
+                record_line(cmd, "Medic: " .. idx .. " -> " .. target_idx)
+                handled = true
+                return
+            end
+        end
+		
         if a1 == "Voting" and a2 == "Skip" then
             record_line("TDS:VoteSkip()", "Voted to skip wave")
             handled = true
@@ -621,6 +633,8 @@ return function(ctx)
                     local handler = Globals.__tds_recorder_handler
                     if handler and method then
                         task.spawn(function()
+							local set_id = setthreadidentity or setidentity or setthreadcontext
+							if set_id then set_id(7) end
                             pcall(handler, self, method, args)
                         end)
                     end

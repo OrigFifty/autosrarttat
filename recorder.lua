@@ -99,7 +99,7 @@ return function(ctx)
 
     local function format_key(key)
         if type(key) == "string" and key:match("^[_%a][_%w]*$") then
-            return key
+            return "[" .. string.format("%q", key) .. "]"
         end
         if type(key) == "number" then
             return "[" .. num_to_str(key) .. "]"
@@ -431,7 +431,6 @@ return function(ctx)
         local a2 = args[2]
         local a3 = args[3]
         local a4 = args[4]
-		--fix
 		local a5 = args[5]
 
         if a1 == "Troops" and a2 == "Abilities" and a3 == "Activate" then
@@ -472,7 +471,7 @@ return function(ctx)
             end
         end
 
-		if a1 == "Troops" and a2 == "Option" then
+        if a1 == "Troops" and a2 == "Option" then
             local payload = type(a3) == "table" and a3 or (type(a4) == "table" and a4)
             if payload then
                 local idx = resolve_tower_index(payload.Troop)
@@ -491,8 +490,7 @@ return function(ctx)
                 end
             end
         end
-		
-		--fix
+
 		if a1 == "Troops" and a2 == "TowerServerEvent" and a3 == "ToggleSelectedTower" then
             local idx = resolve_tower_index(a4)
             local target_idx = resolve_tower_index(a5)
@@ -506,7 +504,7 @@ return function(ctx)
                 handled = true
                 return
             end
-        end
+        end		
 
         if a1 == "Voting" and a2 == "Skip" then
             record_line("TDS:VoteSkip()", "Voted to skip wave")
@@ -640,8 +638,7 @@ return function(ctx)
                     local handler = Globals.__tds_recorder_handler
                     if handler and method then
                         task.spawn(function()
-							--fix
-							local elevate_thread = setthreadidentity or setidentity or setthreadcontext
+                            local elevate_thread = setthreadidentity or setidentity or setthreadcontext
                             if elevate_thread then elevate_thread(7) end
                             pcall(handler, self, method, args)
                         end)

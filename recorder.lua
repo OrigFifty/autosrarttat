@@ -610,59 +610,61 @@ return function(ctx)
             Size = UDim2.new(0, 330, 0, 230)
         })
 
-if has_hook then
-            Globals.__tds_recorder_handler = function(remote, method, args)
-                handle_namecall(remote, method, args)
-            end
+Globals.__tds_recorder_handler = function(remote, method, args)
+            handle_namecall(remote, method, args)
+        end
 
-            if not Globals.__tds_recorder_hooked then
-                Globals.__tds_recorder_hooked = true
+        if not Globals.__tds_recorder_hooked then
+            Globals.__tds_recorder_hooked = true
+            Globals.__working_hook = false
+            
+            -- Brute-Force Attempt 1: Namecall (Standard)
+            pcall(function()
+                local original
+                original = hookmetamethod(game, "__namecall", function(self, ...)
+                    local method = getnamecallmethod and getnamecallmethod() or nil
+                    local args = {...}
+                    local results = table.pack(original(self, ...))
+                    local handler = Globals.__tds_recorder_handler
+                    
+                    if handler and method then
+                        task.spawn(function() pcall(handler, self, method, args) end)
+                    end
+                    return table.unpack(results, 1, results.n)
+                end)
+                Globals.__working_hook = true
+            end)
+
+            -- Brute-Force Attempt 2: Direct Hook (BetterRecorder / Xeno Fallback)
+            pcall(function()
+                local rf = Instance.new("RemoteFunction")
+                local re = Instance.new("RemoteEvent")
                 
-                if has_hookmetamethod then
-                    local original
-                    original = hookmetamethod(game, "__namecall", function(self, ...)
-                        local method = getnamecallmethod and getnamecallmethod() or nil
-                        local args = {...}
-                        local results = table.pack(original(self, ...))
-                        local handler = Globals.__tds_recorder_handler
-                        
-                        if handler and method then
-                            task.spawn(function()
-                                pcall(handler, self, method, args)
-                            end)
-                        end
-                        return table.unpack(results, 1, results.n)
-                    end)
-                    
-                elseif has_hookfunction then
-                    local rf = Instance.new("RemoteFunction")
-                    local re = Instance.new("RemoteEvent")
-                    
-                    local orig_invoke
-                    orig_invoke = hookfunction(rf.InvokeServer, function(self, ...)
-                        local args = {...}
-                        local results = table.pack(orig_invoke(self, ...))
-                        local handler = Globals.__tds_recorder_handler
-                        if handler then
-                            task.spawn(function() pcall(handler, self, "InvokeServer", args) end)
-                        end
-                        return table.unpack(results, 1, results.n)
-                    end)
-                    
-                    local orig_fire
-                    orig_fire = hookfunction(re.FireServer, function(self, ...)
-                        local args = {...}
-                        local handler = Globals.__tds_recorder_handler
-                        if handler then
-                            task.spawn(function() pcall(handler, self, "FireServer", args) end)
-                        end
-                        return orig_fire(self, ...)
-                    end)
-                    
-                    rf:Destroy()
-                    re:Destroy()
-                end
-            end
+                local orig_invoke
+                orig_invoke = hookfunction(rf.InvokeServer, function(self, ...)
+                    local args = {...}
+                    local results = table.pack(orig_invoke(self, ...))
+                    local handler = Globals.__tds_recorder_handler
+                    if handler then
+                        task.spawn(function() pcall(handler, self, "InvokeServer", args) end)
+                    end
+                    return table.unpack(results, 1, results.n)
+                end)
+                
+                local orig_fire
+                orig_fire = hookfunction(re.FireServer, function(self, ...)
+                    local args = {...}
+                    local handler = Globals.__tds_recorder_handler
+                    if handler then
+                        task.spawn(function() pcall(handler, self, "FireServer", args) end)
+                    end
+                    return orig_fire(self, ...)
+                end)
+                
+                rf:Destroy()
+                re:Destroy()
+                Globals.__working_hook = true
+            end)
         end
 
         RecorderTab:Button({
@@ -734,7 +736,7 @@ if has_hook then
 
                 sync_existing_towers()
                 Globals.record_strat = true
-                if has_hook then
+                if Globals.__working_hook then
                     Recorder:Log("Extended recording enabled")
                 else
                     Recorder:Log("Limited recording (place/upgrade/sell)")

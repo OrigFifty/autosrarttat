@@ -19,7 +19,9 @@ return function(ctx)
     local spawned_towers = {}
     local tower_count = 0
     local Recorder
-    local has_hook = type(hookmetamethod) == "function"
+    local has_hookmetamethod = type(hookmetamethod) == "function"
+    local has_hookfunction = type(hookfunction) == "function"
+    local has_hook = has_hookmetamethod or has_hookfunction
 
 	Globals.__action_queue = Globals.__action_queue or {}
 
@@ -608,26 +610,58 @@ return function(ctx)
             Size = UDim2.new(0, 330, 0, 230)
         })
 
-        if has_hook then
+if has_hook then
             Globals.__tds_recorder_handler = function(remote, method, args)
                 handle_namecall(remote, method, args)
             end
 
             if not Globals.__tds_recorder_hooked then
                 Globals.__tds_recorder_hooked = true
-                local original
-                original = hookmetamethod(game, "__namecall", function(self, ...)
-                    local method = getnamecallmethod and getnamecallmethod() or nil
-                    local args = {...}
-                    local results = table.pack(original(self, ...))
-                    local handler = Globals.__tds_recorder_handler
-                    if handler and method then
-                        task.spawn(function()
-                            pcall(handler, self, method, args)
-                        end)
-                    end
-                    return table.unpack(results, 1, results.n)
-                end)
+                
+                if has_hookmetamethod then
+                    local original
+                    original = hookmetamethod(game, "__namecall", function(self, ...)
+                        local method = getnamecallmethod and getnamecallmethod() or nil
+                        local args = {...}
+                        local results = table.pack(original(self, ...))
+                        local handler = Globals.__tds_recorder_handler
+                        
+                        if handler and method then
+                            task.spawn(function()
+                                pcall(handler, self, method, args)
+                            end)
+                        end
+                        return table.unpack(results, 1, results.n)
+                    end)
+                    
+                elseif has_hookfunction then
+                    local rf = Instance.new("RemoteFunction")
+                    local re = Instance.new("RemoteEvent")
+                    
+                    local orig_invoke
+                    orig_invoke = hookfunction(rf.InvokeServer, function(self, ...)
+                        local args = {...}
+                        local results = table.pack(orig_invoke(self, ...))
+                        local handler = Globals.__tds_recorder_handler
+                        if handler then
+                            task.spawn(function() pcall(handler, self, "InvokeServer", args) end)
+                        end
+                        return table.unpack(results, 1, results.n)
+                    end)
+                    
+                    local orig_fire
+                    orig_fire = hookfunction(re.FireServer, function(self, ...)
+                        local args = {...}
+                        local handler = Globals.__tds_recorder_handler
+                        if handler then
+                            task.spawn(function() pcall(handler, self, "FireServer", args) end)
+                        end
+                        return orig_fire(self, ...)
+                    end)
+                    
+                    rf:Destroy()
+                    re:Destroy()
+                end
             end
         end
 

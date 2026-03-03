@@ -1946,7 +1946,7 @@ end
 
 Window:Line()
 
-local RecorderInit = loadstring(game:HttpGet("https://raw.githubusercontent.com/OrigFifty/autosrarttat/refs/heads/main/recorder.lua"))()
+local RecorderInit = loadstring(game:HttpGet("https://raw.githubusercontent.com/DuxiiT/auto-strat/refs/heads/main/Sources/Recorder.lua"))()
 RecorderInit({
     Window = Window,
     ReplicatedStorage = ReplicatedStorage,
@@ -2591,9 +2591,7 @@ local function UnlockSpeedTickets()
     end
 
     if LocalPlayer.TimescaleTickets.Value >= 1 then
-        local TimescaleButton = LocalPlayer.PlayerGui.ReactUniversalHotbar.Frame.timescale
-        local LockIcon = TimescaleButton:FindFirstChild("Lock")
-        if LockIcon and LockIcon.Visible then
+        if game.Players.LocalPlayer.PlayerGui.ReactUniversalHotbar.Frame.timescale.Lock.Visible then
             ReplicatedStorage.RemoteFunction:InvokeServer('TicketsManager', 'UnlockTimeScale')
             Logger:Log("Unlocked timescale tickets")
         end
@@ -3169,7 +3167,7 @@ function TDS:SetOption(idx, name, val, ReqWave)
     end
     return false
 end
-
+--fix
 function TDS:MedicSelect(idx, val)
     local t = self.PlacedTowers[idx]
     local target = self.PlacedTowers[val]

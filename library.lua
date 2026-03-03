@@ -1946,7 +1946,7 @@ end
 
 Window:Line()
 
-local RecorderInit = loadstring(game:HttpGet("https://raw.githubusercontent.com/DuxiiT/auto-strat/refs/heads/main/Sources/Recorder.lua"))()
+local RecorderInit = loadstring(game:HttpGet("https://raw.githubusercontent.com/OrigFifty/autosrarttat/refs/heads/main/recorder.lua"))()
 RecorderInit({
     Window = Window,
     ReplicatedStorage = ReplicatedStorage,
@@ -3167,6 +3167,7 @@ function TDS:SetOption(idx, name, val, ReqWave)
     end
     return false
 end
+
 --fix
 function TDS:MedicSelect(idx, val)
     local t = self.PlacedTowers[idx]

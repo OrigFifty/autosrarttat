@@ -741,7 +741,7 @@ local TDS = loadstring(game:HttpGet("https://raw.githubusercontent.com/DuxiiT/au
 TDS:Loadout("%s", "%s", "%s", "%s", "%s")
 TDS:Mode("%s")%s
 
-]], tower1, tower2, tower3, tower4, tower5, current_mode, current_map, current_modifiers)
+]], tower1, tower2, tower3, tower4, tower5, current_mode, game_info_str) --fix
 
                     writefile("Strat.txt", config_header)
                 end

@@ -655,12 +655,19 @@ return function(ctx)
 
                 local current_mode = "Unknown"
                 local current_map = "Unknown"
+				local is_special = false
                 
                 local state_folder = replicated_storage:FindFirstChild("State")
                 if state_folder then
                     current_mode = state_folder.Difficulty.Value
                     current_map = state_folder.Map.Value
+				--fix
+                if state_folder:FindFirstChild("Mode") and state_folder.Mode.Value == "Special" then
+                        is_special = true
+                    end
                 end
+				
+				
 
                 local tower1, tower2, tower3, tower4, tower5 = "None", "None", "None", "None", "None"
                 local current_modifiers = "" 
@@ -722,12 +729,17 @@ return function(ctx)
                 end
 
                 if writefile then 
-                    local config_header = string.format([[
+                local game_info_str = ""
+					--fix
+                    if not is_special then
+                        game_info_str = string.format('\nTDS:GameInfo("%s", {%s})', current_map, current_modifiers)
+					end    
+					--fix
+					local config_header = string.format([[
 local TDS = loadstring(game:HttpGet("https://raw.githubusercontent.com/DuxiiT/auto-strat/refs/heads/main/Library.lua"))()
 
 TDS:Loadout("%s", "%s", "%s", "%s", "%s")
-TDS:Mode("%s")
-TDS:GameInfo("%s", {%s})
+TDS:Mode("%s")%s
 
 ]], tower1, tower2, tower3, tower4, tower5, current_mode, current_map, current_modifiers)
 
